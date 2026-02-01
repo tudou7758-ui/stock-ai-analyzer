@@ -3,11 +3,212 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>股票基本面 AI 分析器</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+  <title>股票基本面 AI 分析器 📈</title>
+  <meta name="description" content="基于 DeepSeek 深度思考模式的股票基本面分析工具">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .glass { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+  </style>
 </head>
-<body>
-  <div id="app"></div>
-  <script type="module" src="/src/main.js"></script>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen">
+  <div id="app">
+    <!-- Header -->
+    <header class="py-8 px-4 text-center">
+      <h1 class="text-3xl font-bold text-white mb-2">📈 股票基本面 AI 分析器</h1>
+      <p class="text-slate-400 text-sm">基于 DeepSeek 深度思考模式的专业分析</p>
+    </header>
+
+    <!-- Main -->
+    <main class="container mx-auto px-4 pb-12">
+      <!-- Input Card -->
+      <div class="max-w-2xl mx-auto bg-slate-800/60 backdrop-blur rounded-2xl p-6 border border-slate-700/50">
+        <label class="block text-white font-medium mb-3">股票名称或代码</label>
+        <div class="flex gap-3">
+          <input
+            v-model="stockCode"
+            type="text"
+            placeholder="例如：东鹏特饮、605499、腾讯、贵州茅台"
+            class="flex-1 px-4 py-3 bg-slate-700/60 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-indigo-500 outline-none transition"
+            :disabled="loading"
+            @keyup.enter="analyze"
+          >
+          <button
+            @click="analyze"
+            :disabled="!canSubmit || loading"
+            class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 text-white font-medium rounded-xl transition flex items-center gap-2"
+          >
+            <span v-if="loading" class="spin">⏳</span>
+            <span>{{ loading ? '分析中...' : '开始分析' }}</span>
+          </button>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <span class="text-slate-500 text-sm">快捷：</span>
+          <button v-for="s in examples" :key="s" @click="stockCode = s"
+            class="px-3 py-1 bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm transition"
+            :disabled="loading">{{ s }}</button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="loading" class="max-w-2xl mx-auto mt-8 bg-slate-800/60 backdrop-blur rounded-2xl p-8 border border-slate-700/50 text-center">
+        <div class="inline-flex items-center justify-center w-20 h-20 mb-6">
+          <div class="relative">
+            <div class="absolute inset-0 border-4 border-indigo-500/30 rounded-full"></div>
+            <div class="absolute inset-0 border-4 border-indigo-500 rounded-full border-t-transparent spin"></div>
+            <span class="text-3xl">🤖</span>
+          </div>
+        </div>
+        <h3 class="text-white text-lg font-medium mb-2">DeepSeek 深度思考中...</h3>
+        <p class="text-slate-400 text-sm">正在分析 {{ stockCode }} 的基本面</p>
+        <div class="max-w-xs mx-auto mt-4">
+          <div class="h-1 bg-slate-700 rounded-full overflow-hidden">
+            <div class="h-full bg-indigo-500 pulse" style="width: 60%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div v-if="error" class="max-w-2xl mx-auto mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-center">
+        {{ error }}
+      </div>
+
+      <!-- Result -->
+      <div v-if="result" class="max-w-4xl mx-auto mt-8 bg-slate-800/60 backdrop-blur rounded-2xl border border-slate-700/50 overflow-hidden">
+        <div class="px-6 py-4 bg-slate-700/30 border-b border-slate-700/50 flex justify-between items-center">
+          <h2 class="text-white font-semibold">📊 {{ result.stock }} 分析报告</h2>
+          <button @click="copyResult" class="px-3 py-1 bg-slate-600 hover:bg-slate-500 text-slate-300 hover:text-white rounded-lg text-sm transition">
+            {{ copied ? '✅ 已复制' : '📋 复制' }}
+          </button>
+        </div>
+        <div class="p-6 text-slate-300 leading-relaxed whitespace-pre-wrap">{{ result.analysis }}</div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-6 text-center text-slate-500 text-sm">
+      <p>输入股票名称或代码，获取完整基本面分析报告</p>
+    </footer>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue
+    const API_URL = 'https://stock-ai-analyzer.tudou7758.workers.dev/api'
+    // 备用：如果 Worker 还没部署，使用模拟数据
+    const DEMO_MODE = false
+
+    createApp({
+      setup() {
+        const stockCode = ref('')
+        const result = ref(null)
+        const loading = ref(false)
+        const error = ref(null)
+        const copied = ref(false)
+        const examples = ['东鹏特饮', '腾讯', '贵州茅台', '宁德时代']
+
+        const canSubmit = computed(() => stockCode.value.trim().length >= 1)
+
+        const analyze = async () => {
+          if (!canSubmit.value || loading.value) return
+          stockCode.value = stockCode.value.trim()
+          result.value = null
+          error.value = null
+          loading.value = true
+
+          try {
+            if (DEMO_MODE) {
+              await new Promise(r => setTimeout(r, 2000))
+              result.value = { stock: stockCode.value, analysis: demoResponse(stockCode.value) }
+            } else {
+              const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stock: stockCode.value })
+              })
+              const data = await res.json()
+              if (data.success) result.value = data.data
+              else error.value = data.error || '分析失败'
+            }
+          } catch (e) {
+            error.value = '网络错误，请稍后重试'
+          } finally {
+            loading.value = false
+          }
+        }
+
+        const copyResult = async () => {
+          try {
+            await navigator.clipboard.writeText(result.value.analysis)
+            copied.value = true
+            setTimeout(() => copied.value = false, 2000)
+          } catch (e) {}
+        }
+
+        return { stockCode, result, loading, error, copied, examples, canSubmit, analyze, copyResult }
+      }
+    }).mount('#app')
+
+    function demoResponse(stock) {
+      return `# ${stock} 基本面分析报告
+
+## 一、基础数据
+
+| 指标 | 数值 | 说明 |
+|------|------|------|
+| 市值 | 待获取 | 数据不可得 |
+| PE(TTM) | 待获取 | 数据不可得 |
+| PB | 待获取 | 数据不可得 |
+
+> ⚠️ 注意：这是演示模式，完整分析需要部署后端 API。
+
+## 二、提示词框架已就绪
+
+本分析器使用以下结构化分析框架：
+
+1. **基础数据准备** - 市值、PE/PB、行业对比
+2. **估值分位分析** - 5年/10年中值偏离度
+3. **业务分析** - 核心产品、周期属性、护城河
+4. **经营稳定性** - 发展阶段、利润波动
+5. **定价权分析** - 强弱定价领域判断
+6. **成长性分析** - 历史归因、未来预测
+7. **财务质量** - 现金流、商誉风险
+8. **竞争格局** - 波特五力分析
+9. **综合估值** - 多模型估值、安全边际
+
+## 三、部署说明
+
+### 后端 API 配置
+
+需要部署 Cloudflare Workers 并配置 DeepSeek API Key：
+
+\`\`\`bash
+# 安装 wrangler
+npm install -g wrangler
+
+# 配置 API Key
+npx wrangler secret put DEEPSEEK_API_KEY
+
+# 部署
+npx wrangler deploy
+\`\`\`
+
+### 环境变量
+
+在 Cloudflare Dashboard 中设置：
+- \`DEEPSEEK_API_KEY\`: 你的 DeepSeek API Key
+- \`DEEPSEEK_MODEL\`: deepseek-reasoner (可选)
+
+---
+
+*部署完成后，AI 将自动生成专业的基本面分析报告。*`
+    }
+  </script>
 </body>
 </html>
